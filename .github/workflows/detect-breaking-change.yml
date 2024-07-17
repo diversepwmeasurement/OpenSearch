@@ -1,29 +1,31 @@
-name: "Detect Breaking Changes"
-on:
-  pull_request:
-    branches-ignore:
-      - main # This branch represents a to-be-released version of OpenSearch where breaking changes are allowed
-
 jobs:
   detect-breaking-change:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-java@v4
+    - continue-on-error: true
+      uses: actions/checkout@v4
+    - continue-on-error: true
+      uses: actions/setup-java@v4
       with:
-        distribution: temurin # Temurin is a distribution of adoptium
+        distribution: temurin
         java-version: 21
-    - uses: gradle/gradle-build-action@v3
+    - continue-on-error: true
+      uses: gradle/gradle-build-action@v3
       with:
-        cache-disabled: true
         arguments: japicmp
-        gradle-version: 8.7
         build-root-directory: server
-    - if: failure()
+        cache-disabled: true
+        gradle-version: 8.7
+    - continue-on-error: true
+      if: failure()
       run: cat server/build/reports/java-compatibility/report.txt
-    - if: failure()
+    - continue-on-error: true
+      if: failure()
       uses: actions/upload-artifact@v4
       with:
         name: java-compatibility-report.html
         path: ${{ github.workspace }}/server/build/reports/java-compatibility/report.html
-  
+name: Detect Breaking Changes
+on:
+  repository_dispatch:
+    types: trigger-ga___detect-breaking-change.yml

@@ -1,157 +1,135 @@
+jobs:
+  build:
+    if: github.repository == 'opensearch-project/OpenSearch'
+    runs-on: self-hosted
+    steps:
+    - continue-on-error: true
+      name: Fetch tag and version information
+      run: "TAG=$(echo \"${GITHUB_REF#refs/*/}\")\nif [ -n ${{ github.event.inputs.tag\
+        \ }} ]; then\n  TAG=${{ github.event.inputs.tag }}\nfi\nCURRENT_VERSION_ARRAY=($(echo\
+        \ \"$TAG\" | tr . '\\n'))\nBASE=$(IFS=. ; echo \"${CURRENT_VERSION_ARRAY[*]:0:2}\"\
+        )\nBASE_X=$(IFS=. ; echo \"${CURRENT_VERSION_ARRAY[*]:0:1}.x\")\nCURRENT_VERSION=$(IFS=.\
+        \ ; echo \"${CURRENT_VERSION_ARRAY[*]:0:3}\")\nCURRENT_VERSION_UNDERSCORE=$(IFS=_\
+        \ ; echo \"V_${CURRENT_VERSION_ARRAY[*]:0:3}\")\nCURRENT_VERSION_ARRAY[2]=$((CURRENT_VERSION_ARRAY[2]+1))\n\
+        NEXT_VERSION=$(IFS=. ; echo \"${CURRENT_VERSION_ARRAY[*]:0:3}\")\nNEXT_VERSION_UNDERSCORE=$(IFS=_\
+        \ ; echo \"V_${CURRENT_VERSION_ARRAY[*]:0:3}\")\nif [[ ${#CURRENT_VERSION_ARRAY[2]}\
+        \ -gt 1 ]]; then\n  NEXT_VERSION_ID=\"${CURRENT_VERSION_ARRAY[0]:0:3}0${CURRENT_VERSION_ARRAY[1]:0:3}${CURRENT_VERSION_ARRAY[2]:0:3}99\"\
+        \nelse\n  NEXT_VERSION_ID=$(IFS=0 ; echo \"${CURRENT_VERSION_ARRAY[*]:0:3}99\"\
+        )\nfi\necho \"TAG=$TAG\" >> $GITHUB_ENV\necho \"BASE=$BASE\" >> $GITHUB_ENV\n\
+        echo \"BASE_X=$BASE_X\" >> $GITHUB_ENV\necho \"CURRENT_VERSION=$CURRENT_VERSION\"\
+        \ >> $GITHUB_ENV\necho \"CURRENT_VERSION_UNDERSCORE=$CURRENT_VERSION_UNDERSCORE\"\
+        \ >> $GITHUB_ENV\necho \"NEXT_VERSION=$NEXT_VERSION\" >> $GITHUB_ENV\necho\
+        \ \"NEXT_VERSION_UNDERSCORE=$NEXT_VERSION_UNDERSCORE\" >> $GITHUB_ENV\necho\
+        \ \"NEXT_VERSION_ID=$NEXT_VERSION_ID\" >> $GITHUB_ENV\n"
+    - continue-on-error: true
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ env.BASE }}
+    - continue-on-error: true
+      name: Increment Patch Version on Major.Minor branch
+      uses: peternied/opensearch-core-version-updater@v1
+      with:
+        new-version: ${{ env.NEXT_VERSION }}
+        previous-version: ${{ env.CURRENT_VERSION }}
+        update-current: true
+    - continue-on-error: true
+      id: base_pr
+      name: Create PR for BASE
+      uses: peter-evans/create-pull-request@v6
+      with:
+        base: ${{ env.BASE }}
+        body: 'I''ve noticed that a new tag ${{ env.TAG }} was pushed, and incremented
+          the version from ${{ env.CURRENT_VERSION }} to ${{ env.NEXT_VERSION }}.
+
+          '
+        branch: create-pull-request/patch-${{ env.BASE }}
+        commit-message: Increment version to ${{ env.NEXT_VERSION }}
+        delete-branch: true
+        labels: 'autocut
+
+          '
+        signoff: true
+        title: '[AUTO] Increment version to ${{ env.NEXT_VERSION }}.'
+    - continue-on-error: true
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ env.BASE_X }}
+    - continue-on-error: true
+      name: Add Patch Version on Major.X branch
+      uses: peternied/opensearch-core-version-updater@v1
+      with:
+        new-version: ${{ env.NEXT_VERSION }}
+        previous-version: ${{ env.CURRENT_VERSION }}
+        update-current: false
+    - continue-on-error: true
+      id: base_x_pr
+      name: Create PR for BASE_X
+      uses: peter-evans/create-pull-request@v6
+      with:
+        base: ${{ env.BASE_X }}
+        body: 'I''ve noticed that a new tag ${{ env.TAG }} was pushed, and added a
+          bwc version ${{ env.NEXT_VERSION }}.
+
+          '
+        branch: create-pull-request/patch-${{ env.BASE_X }}
+        commit-message: Add bwc version ${{ env.NEXT_VERSION }}
+        delete-branch: true
+        labels: 'autocut
+
+          '
+        signoff: true
+        title: '[AUTO] [${{ env.BASE_X }}] Add bwc version ${{ env.NEXT_VERSION }}.'
+    - continue-on-error: true
+      uses: actions/checkout@v4
+      with:
+        ref: main
+    - continue-on-error: true
+      name: Add Patch Version on main branch
+      uses: peternied/opensearch-core-version-updater@v1
+      with:
+        new-version: ${{ env.NEXT_VERSION }}
+        previous-version: ${{ env.CURRENT_VERSION }}
+        update-current: false
+    - continue-on-error: true
+      id: main_pr
+      name: Create PR for main
+      uses: peter-evans/create-pull-request@v6
+      with:
+        base: main
+        body: 'I''ve noticed that a new tag ${{ env.TAG }} was pushed, and added a
+          bwc version ${{ env.NEXT_VERSION }}.
+
+          '
+        branch: create-pull-request/patch-main
+        commit-message: Add bwc version ${{ env.NEXT_VERSION }}
+        delete-branch: true
+        labels: 'autocut
+
+          '
+        signoff: true
+        title: '[AUTO] [main] Add bwc version ${{ env.NEXT_VERSION }}.'
+    - continue-on-error: true
+      id: create-issue
+      name: Create tracking issue
+      uses: actions/github-script@v7.0.1
+      with:
+        result-encoding: string
+        script: "const body = `\n ### Description\n A new version of OpenSearch was\
+          \ released, to prepare for the next release new version numbers need to\
+          \ be updated in all active branches of development.\n\n ### Exit Criteria\n\
+          \ Review and merged the following pull requests\n - [ ] ${{ steps.base_pr.outputs.pull-request-url\
+          \ }}\n - [ ] ${{ steps.base_x_pr.outputs.pull-request-url }}\n - [ ] ${{\
+          \ steps.main_pr.outputs.pull-request-url }}\n\n ### Additional Context\n\
+          \ See project wide guidance on branching and versions [[link]](https://github.com/opensearch-project/.github/blob/main/RELEASING.md).\n\
+          `\nconst { data: issue }= await github.rest.issues.create({\n  owner: context.repo.owner,\n\
+          \  repo: context.repo.repo,\n  labels: [\"Build\"],\n  title: \"Increment\
+          \ version for ${{ env.NEXT_VERSION }}\",\n  body: body\n});\nconsole.error(JSON.stringify(issue));\n\
+          return issue.number;\n"
 name: Increment Version
-
 on:
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: 'the tag'
-        required: true
-        type: string
-  push:
-    tags:
-      - '*.*.*'
-
+  repository_dispatch:
+    types: trigger-ga___version.yml
 permissions:
   contents: write
   issues: write
   pull-requests: write
-
-jobs:
-  build:
-    if: github.repository == 'opensearch-project/OpenSearch'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Fetch tag and version information
-        run: |
-          TAG=$(echo "${GITHUB_REF#refs/*/}")
-          if [ -n ${{ github.event.inputs.tag }} ]; then
-            TAG=${{ github.event.inputs.tag }}
-          fi
-          CURRENT_VERSION_ARRAY=($(echo "$TAG" | tr . '\n'))
-          BASE=$(IFS=. ; echo "${CURRENT_VERSION_ARRAY[*]:0:2}")
-          BASE_X=$(IFS=. ; echo "${CURRENT_VERSION_ARRAY[*]:0:1}.x")
-          CURRENT_VERSION=$(IFS=. ; echo "${CURRENT_VERSION_ARRAY[*]:0:3}")
-          CURRENT_VERSION_UNDERSCORE=$(IFS=_ ; echo "V_${CURRENT_VERSION_ARRAY[*]:0:3}")
-          CURRENT_VERSION_ARRAY[2]=$((CURRENT_VERSION_ARRAY[2]+1))
-          NEXT_VERSION=$(IFS=. ; echo "${CURRENT_VERSION_ARRAY[*]:0:3}")
-          NEXT_VERSION_UNDERSCORE=$(IFS=_ ; echo "V_${CURRENT_VERSION_ARRAY[*]:0:3}")
-          if [[ ${#CURRENT_VERSION_ARRAY[2]} -gt 1 ]]; then
-            NEXT_VERSION_ID="${CURRENT_VERSION_ARRAY[0]:0:3}0${CURRENT_VERSION_ARRAY[1]:0:3}${CURRENT_VERSION_ARRAY[2]:0:3}99"
-          else
-            NEXT_VERSION_ID=$(IFS=0 ; echo "${CURRENT_VERSION_ARRAY[*]:0:3}99")
-          fi
-          echo "TAG=$TAG" >> $GITHUB_ENV
-          echo "BASE=$BASE" >> $GITHUB_ENV
-          echo "BASE_X=$BASE_X" >> $GITHUB_ENV
-          echo "CURRENT_VERSION=$CURRENT_VERSION" >> $GITHUB_ENV
-          echo "CURRENT_VERSION_UNDERSCORE=$CURRENT_VERSION_UNDERSCORE" >> $GITHUB_ENV
-          echo "NEXT_VERSION=$NEXT_VERSION" >> $GITHUB_ENV
-          echo "NEXT_VERSION_UNDERSCORE=$NEXT_VERSION_UNDERSCORE" >> $GITHUB_ENV
-          echo "NEXT_VERSION_ID=$NEXT_VERSION_ID" >> $GITHUB_ENV
-
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ env.BASE }}
-
-      - name: Increment Patch Version on Major.Minor branch
-        uses: peternied/opensearch-core-version-updater@v1
-        with:
-          previous-version: ${{ env.CURRENT_VERSION }}
-          new-version: ${{ env.NEXT_VERSION }}
-          update-current: true
-
-      - name: Create PR for BASE
-        id: base_pr
-        uses: peter-evans/create-pull-request@v6
-        with:
-          base: ${{ env.BASE }}
-          branch: 'create-pull-request/patch-${{ env.BASE }}'
-          commit-message: Increment version to ${{ env.NEXT_VERSION }}
-          signoff: true
-          delete-branch: true
-          labels: |
-            autocut
-          title: '[AUTO] Increment version to ${{ env.NEXT_VERSION }}.'
-          body: |
-            I've noticed that a new tag ${{ env.TAG }} was pushed, and incremented the version from ${{ env.CURRENT_VERSION }} to ${{ env.NEXT_VERSION }}.
-
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ env.BASE_X }}
-
-      - name: Add Patch Version on Major.X branch
-        uses: peternied/opensearch-core-version-updater@v1
-        with:
-          previous-version: ${{ env.CURRENT_VERSION }}
-          new-version: ${{ env.NEXT_VERSION }}
-          update-current: false
-
-      - name: Create PR for BASE_X
-        id: base_x_pr
-        uses: peter-evans/create-pull-request@v6
-        with:
-          base: ${{ env.BASE_X }}
-          branch: 'create-pull-request/patch-${{ env.BASE_X }}'
-          commit-message: Add bwc version ${{ env.NEXT_VERSION }}
-          signoff: true
-          delete-branch: true
-          labels: |
-            autocut
-          title: '[AUTO] [${{ env.BASE_X }}] Add bwc version ${{ env.NEXT_VERSION }}.'
-          body: |
-            I've noticed that a new tag ${{ env.TAG }} was pushed, and added a bwc version ${{ env.NEXT_VERSION }}.
-
-      - uses: actions/checkout@v4
-        with:
-          ref: main
-
-      - name: Add Patch Version on main branch
-        uses: peternied/opensearch-core-version-updater@v1
-        with:
-          previous-version: ${{ env.CURRENT_VERSION }}
-          new-version: ${{ env.NEXT_VERSION }}
-          update-current: false
-
-      - name: Create PR for main
-        id: main_pr
-        uses: peter-evans/create-pull-request@v6
-        with:
-          base: main
-          branch: 'create-pull-request/patch-main'
-          commit-message: Add bwc version ${{ env.NEXT_VERSION }}
-          signoff: true
-          delete-branch: true
-          labels: |
-            autocut
-          title: '[AUTO] [main] Add bwc version ${{ env.NEXT_VERSION }}.'
-          body: |
-            I've noticed that a new tag ${{ env.TAG }} was pushed, and added a bwc version ${{ env.NEXT_VERSION }}.
-
-      - name: Create tracking issue
-        id: create-issue
-        uses: actions/github-script@v7.0.1
-        with:
-          script: |
-            const body = `
-             ### Description
-             A new version of OpenSearch was released, to prepare for the next release new version numbers need to be updated in all active branches of development.
-
-             ### Exit Criteria
-             Review and merged the following pull requests
-             - [ ] ${{ steps.base_pr.outputs.pull-request-url }}
-             - [ ] ${{ steps.base_x_pr.outputs.pull-request-url }}
-             - [ ] ${{ steps.main_pr.outputs.pull-request-url }}
-
-             ### Additional Context
-             See project wide guidance on branching and versions [[link]](https://github.com/opensearch-project/.github/blob/main/RELEASING.md).
-            `
-            const { data: issue }= await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: ["Build"],
-              title: "Increment version for ${{ env.NEXT_VERSION }}",
-              body: body
-            });
-            console.error(JSON.stringify(issue));
-            return issue.number;
-          result-encoding: string

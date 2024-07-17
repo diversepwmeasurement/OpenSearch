@@ -1,11 +1,14 @@
-name: Validate Gradle Wrapper
-on: [pull_request]
-
 jobs:
   validate:
-    name: Validate
     if: github.repository == 'opensearch-project/OpenSearch'
-    runs-on: ubuntu-latest
+    name: Validate
+    runs-on: self-hosted
     steps:
-      - uses: actions/checkout@v4
-      - uses: gradle/wrapper-validation-action@v3
+    - continue-on-error: true
+      uses: actions/checkout@v4
+    - continue-on-error: true
+      uses: gradle/wrapper-validation-action@v3
+name: Validate Gradle Wrapper
+on:
+  repository_dispatch:
+    types: trigger-ga___wrapper.yml

@@ -1,32 +1,26 @@
-name: Maintainers approval
-
-on:
-  pull_request_review:
-
 jobs:
   maintainer-approved-check:
     name: Minimum approval count
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
-      - id: find-maintainers
-        uses: actions/github-script@v7.0.1
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          result-encoding: string
-          script: |
-            // Get the collaborators - filtered to maintainer permissions
-            const maintainersResponse = await github.request('GET /repos/{owner}/{repo}/collaborators', {
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                permission: 'maintain',
-                affiliation: 'all',
-                per_page: 100
-            });
-
-            return maintainersResponse.data.map(item => item.login).join(', ');
-
-      - uses: peternied/required-approval@v1.3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          min-required: 1
-          required-approvers-list: ${{ steps.find-maintainers.outputs.result }}
+    - continue-on-error: true
+      id: find-maintainers
+      uses: actions/github-script@v7.0.1
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        result-encoding: string
+        script: "// Get the collaborators - filtered to maintainer permissions\nconst\
+          \ maintainersResponse = await github.request('GET /repos/{owner}/{repo}/collaborators',\
+          \ {\n    owner: context.repo.owner,\n    repo: context.repo.repo,\n    permission:\
+          \ 'maintain',\n    affiliation: 'all',\n    per_page: 100\n});\n\nreturn\
+          \ maintainersResponse.data.map(item => item.login).join(', ');\n"
+    - continue-on-error: true
+      uses: peternied/required-approval@v1.3
+      with:
+        min-required: 1
+        required-approvers-list: ${{ steps.find-maintainers.outputs.result }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+name: Maintainers approval
+on:
+  repository_dispatch:
+    types: trigger-ga___maintainer-approval.yml

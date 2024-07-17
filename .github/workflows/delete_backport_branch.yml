@@ -1,15 +1,14 @@
-name: Delete merged branch of the backport PRs
-on: 
-  pull_request:
-    types:
-      - closed
-  
 jobs:
   delete-branch:
-    runs-on: ubuntu-latest
     if: startsWith(github.event.pull_request.head.ref,'backport/')
+    runs-on: self-hosted
     steps:
-      - name: Delete merged branch
-        uses: SvanBoxel/delete-merged-branch@main
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - continue-on-error: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      name: Delete merged branch
+      uses: SvanBoxel/delete-merged-branch@main
+name: Delete merged branch of the backport PRs
+on:
+  repository_dispatch:
+    types: trigger-ga___delete_backport_branch.yml

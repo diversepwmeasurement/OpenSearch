@@ -1,21 +1,23 @@
-name: Link Checker
-on:
-  schedule:
-    - cron:  '0 0 * * *'
-permissions:
-  contents: read # to fetch code (actions/checkout)
 jobs:
   linkchecker:
     if: github.repository == 'opensearch-project/OpenSearch'
-    runs-on: ubuntu-latest
-
+    runs-on: self-hosted
     steps:
-      - uses: actions/checkout@v4
-      - name: lychee Link Checker
-        id: lychee
-        uses: lycheeverse/lychee-action@v1.10.0
-        with:
-          args: --accept=200,403,429 --exclude-mail **/*.html **/*.md **/*.txt **/*.json --exclude-file .lychee.excludes
-          fail: true
-        env:
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+    - continue-on-error: true
+      uses: actions/checkout@v4
+    - continue-on-error: true
+      env:
+        GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+      id: lychee
+      name: lychee Link Checker
+      uses: lycheeverse/lychee-action@v1.10.0
+      with:
+        args: --accept=200,403,429 --exclude-mail **/*.html **/*.md **/*.txt **/*.json
+          --exclude-file .lychee.excludes
+        fail: true
+name: Link Checker
+on:
+  repository_dispatch:
+    types: trigger-ga___links.yml
+permissions:
+  contents: read

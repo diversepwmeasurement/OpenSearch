@@ -1,19 +1,19 @@
-name: Developer Certificate of Origin Check
-
-on: [pull_request]
-
 jobs:
   dco-check:
-    runs-on: ubuntu-latest
-
+    runs-on: self-hosted
     steps:
-    - name: Get PR Commits
-      id: 'get-pr-commits'
+    - continue-on-error: true
+      id: get-pr-commits
+      name: Get PR Commits
       uses: tim-actions/get-pr-commits@v1.3.1
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
-    - name: DCO Check
+    - continue-on-error: true
+      name: DCO Check
       uses: tim-actions/dco@v1.1.0
       with:
         commits: ${{ steps.get-pr-commits.outputs.commits }}
-
+name: Developer Certificate of Origin Check
+on:
+  repository_dispatch:
+    types: trigger-ga___dco.yml

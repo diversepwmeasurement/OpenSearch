@@ -1,21 +1,23 @@
-name: Copy labels from linked issues
-on:
-  pull_request_target:
-    types: [opened, edited, review_requested, synchronize, reopened, ready_for_review]
-
 jobs:
   copy-issue-labels:
     if: github.repository == 'opensearch-project/OpenSearch'
-    runs-on: ubuntu-latest
     permissions:
-      issues: read
       contents: read
+      issues: read
       pull-requests: write
+    runs-on: self-hosted
     steps:
-      - name: copy-issue-labels
-        uses: michalvankodev/copy-issue-labels@v1.3.0
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          labels-to-exclude: |
-            untriaged
-            triaged
+    - continue-on-error: true
+      name: copy-issue-labels
+      uses: michalvankodev/copy-issue-labels@v1.3.0
+      with:
+        labels-to-exclude: 'untriaged
+
+          triaged
+
+          '
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+name: Copy labels from linked issues
+on:
+  repository_dispatch:
+    types: trigger-ga___copy-linked-issue-labels.yml
